@@ -1,0 +1,497 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>River Crossing Boat</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  padding:20px 14px;
+  font-family:Arial,sans-serif;
+  color:#183047;
+  background:#edf5fa;
+}
+.container{max-width:950px;margin:auto}
+header{text-align:center;margin-bottom:20px}
+header h1{margin:0 0 8px;color:#116b9c;font-size:29px}
+header p{margin:0;color:#6a7e91;line-height:1.5}
+.panel{
+  background:white;
+  border-radius:16px;
+  padding:19px;
+  margin-bottom:16px;
+  box-shadow:0 5px 20px rgba(25,60,90,.07);
+}
+h2{font-size:18px;margin:0 0 15px}
+canvas{
+  width:100%;
+  display:block;
+  border-radius:12px;
+  background:#c9eff8;
+}
+.controls{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+}
+.control label{
+  display:flex;
+  justify-content:space-between;
+  font-size:13px;
+  font-weight:bold;
+  margin-bottom:10px;
+  gap:5px;
+}
+.control strong{color:#0878b4}
+input[type=range]{width:100%;accent-color:#087fba}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+button{
+  border:0;
+  padding:12px 18px;
+  border-radius:9px;
+  font-weight:bold;
+  cursor:pointer;
+  font-size:14px;
+}
+.primary{background:#087fba;color:white;flex:1}
+.secondary{background:#e8f1f7;color:#31536b}
+button:hover{filter:brightness(.96)}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+.stat{
+  background:#f0f7fb;
+  padding:13px;
+  border-radius:10px;
+}
+.stat span{font-size:12px;color:#72869a;display:block;margin-bottom:7px}
+.stat strong{font-size:19px;color:#126b9b}
+.explanation{
+  background:#f2f8fc;
+  padding:14px;
+  border-radius:10px;
+  line-height:1.7;
+  font-size:14px;
+}
+.formula{
+  background:#f2f8fc;
+  border-radius:10px;
+  padding:14px;
+  margin-top:10px;
+  line-height:1.8;
+  font-size:14px;
+}
+.formula strong{color:#126b9b}
+.note{font-size:12px;color:#7a8b9b;line-height:1.6;margin-bottom:0}
+footer{text-align:center;color:#8b9aaa;font-size:12px;padding:10px}
+@media(max-width:650px){
+  .controls{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  header h1{font-size:24px}
+  .panel{padding:15px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🚤 River Crossing Boat</h1>
+  <p>Can you steer a boat straight across a flowing river?</p>
+</header>
+
+<section class="panel">
+  <h2>River Simulation</h2>
+  <canvas id="river" width="900" height="440"></canvas>
+
+  <div class="actions">
+    <button class="primary" id="startBtn" onclick="startSimulation()">▶ Start Crossing</button>
+    <button class="secondary" onclick="resetSimulation()">↺ Reset</button>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Adjust the Conditions</h2>
+
+  <div class="controls">
+    <div class="control">
+      <label>Boat Speed <strong id="boatValue">5.0 m/s</strong></label>
+      <input id="boatSpeed" type="range" min="1" max="12" step=".5" value="5">
+    </div>
+
+    <div class="control">
+      <label>River Current <strong id="currentValue">2.0 m/s</strong></label>
+      <input id="currentSpeed" type="range" min="0" max="8" step=".5" value="2">
+    </div>
+
+    <div class="control">
+      <label>Heading Angle <strong id="angleValue">0°</strong></label>
+      <input id="angle" type="range" min="-80" max="80" step="1" value="0">
+    </div>
+  </div>
+
+  <p class="note">
+    The heading angle is measured from the straight-across direction.
+    Negative angles point upstream; positive angles point downstream.
+    Boat speed is measured relative to the water.
+  </p>
+</section>
+
+<section class="panel">
+  <h2>Live Measurements</h2>
+  <div class="stats">
+    <div class="stat">
+      <span>Crossing Time</span>
+      <strong id="timeStat">—</strong>
+    </div>
+    <div class="stat">
+      <span>Downstream Drift</span>
+      <strong id="driftStat">—</strong>
+    </div>
+    <div class="stat">
+      <span>Ground Speed</span>
+      <strong id="groundStat">—</strong>
+    </div>
+    <div class="stat">
+      <span>Landing Position</span>
+      <strong id="landingStat">—</strong>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Understanding Relative Velocity</h2>
+  <div class="explanation" id="explanation">
+    Adjust the controls to see how the boat's direction and river current combine to determine its path.
+  </div>
+
+  <div class="formula">
+    <strong>Velocity of boat relative to ground:</strong><br>
+    v<sub>BG</sub> = v<sub>BW</sub> + v<sub>WG</sub><br><br>
+
+    <strong>Across-river velocity:</strong><br>
+    v<sub>x</sub> = v<sub>boat</sub> cos(θ)<br><br>
+
+    <strong>Downstream velocity:</strong><br>
+    v<sub>y</sub> = v<sub>current</sub> + v<sub>boat</sub> sin(θ)<br><br>
+
+    <strong>Crossing time:</strong><br>
+    t = River Width / v<sub>x</sub><br><br>
+
+    <strong>Downstream drift:</strong><br>
+    d = v<sub>y</sub> × t
+  </div>
+</section>
+<script>
+const canvas=document.getElementById("river");
+const ctx=canvas.getContext("2d");
+
+const boatInput=document.getElementById("boatSpeed");
+const currentInput=document.getElementById("currentSpeed");
+const angleInput=document.getElementById("angle");
+
+const riverWidth=100;
+const startX=110;
+const startY=220;
+const riverEnd=860;
+const visualScale=1.8;
+
+let running=false;
+let finished=false;
+let animationId=null;
+let lastTime=0;
+let elapsed=0;
+let boatX=startX;
+let boatY=startY;
+
+function getValues(){
+  return {
+    boat:Number(boatInput.value),
+    current:Number(currentInput.value),
+    angle:Number(angleInput.value)*Math.PI/180
+  };
+}
+
+function calculate(){
+  const {boat,current,angle}=getValues();
+  const across=boat*Math.cos(angle);
+  const downstream=current+boat*Math.sin(angle);
+  const ground=Math.hypot(across,downstream);
+  const time=riverWidth/across;
+  const drift=downstream*time;
+
+  return {across,downstream,ground,time,drift};
+}
+
+function updateLabels(){
+  const {boat,current}=getValues();
+
+  document.getElementById("boatValue").textContent=boat.toFixed(1)+" m/s";
+  document.getElementById("currentValue").textContent=current.toFixed(1)+" m/s";
+  document.getElementById("angleValue").textContent=angleInput.value+"°";
+
+  updateStats();
+
+  if(!running&&!finished){
+    boatX=startX;
+    boatY=startY;
+    draw();
+  }
+}
+
+function updateStats(){
+  const result=calculate();
+
+  document.getElementById("timeStat").textContent=result.time.toFixed(2)+" s";
+  document.getElementById("driftStat").textContent=result.drift.toFixed(2)+" m";
+  document.getElementById("groundStat").textContent=result.ground.toFixed(2)+" m/s";
+  document.getElementById("landingStat").textContent=result.drift.toFixed(2)+" m";
+
+  let explanation=
+    `The boat moves across the river at ${result.across.toFixed(2)} m/s and downstream at ${result.downstream.toFixed(2)} m/s. `+
+    `Its resultant ground speed is ${result.ground.toFixed(2)} m/s. `;
+
+  if(result.downstream>0.01){
+    explanation+=`It lands ${result.drift.toFixed(2)} m downstream.`;
+  }else if(result.downstream< -0.01){
+    explanation+=`It lands ${Math.abs(result.drift).toFixed(2)} m upstream.`;
+  }else{
+    explanation+="It lands directly opposite its starting point.";
+  }
+
+  explanation+=` The crossing takes ${result.time.toFixed(2)} seconds.`;
+
+  document.getElementById("explanation").textContent=explanation;
+}
+
+function drawArrow(x1,y1,x2,y2,color,label){
+  const angle=Math.atan2(y2-y1,x2-x1);
+
+  ctx.strokeStyle=color;
+  ctx.fillStyle=color;
+  ctx.lineWidth=3;
+
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);
+  ctx.lineTo(x2,y2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-10*Math.cos(angle-.45),y2-10*Math.sin(angle-.45));
+  ctx.lineTo(x2-10*Math.cos(angle+.45),y2-10*Math.sin(angle+.45));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.font="bold 13px Arial";
+  ctx.fillText(label,x2+7,y2-8);
+}
+
+function drawBoat(x,y){
+  ctx.save();
+  ctx.translate(x,y);
+
+  ctx.fillStyle="#8b4a23";
+  ctx.beginPath();
+  ctx.moveTo(-23,-9);
+  ctx.lineTo(20,-9);
+  ctx.lineTo(29,0);
+  ctx.lineTo(20,9);
+  ctx.lineTo(-23,9);
+  ctx.lineTo(-29,0);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle="#f4c98c";
+  ctx.fillRect(-12,-6,25,12);
+
+  ctx.fillStyle="#fff";
+  ctx.beginPath();
+  ctx.arc(0,-2,4,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function draw(){
+  const w=canvas.width;
+  const h=canvas.height;
+  const result=calculate();
+
+  ctx.clearRect(0,0,w,h);
+
+  ctx.fillStyle="#b8eaf4";
+  ctx.fillRect(0,0,w,h);
+
+  ctx.fillStyle="#d4e9b8";
+  ctx.fillRect(0,0,w,55);
+  ctx.fillRect(0,h-55,w,55);
+
+  ctx.fillStyle="#6c9d4d";
+  ctx.fillRect(0,55,w,4);
+  ctx.fillRect(0,h-59,w,4);
+
+  ctx.strokeStyle="rgba(255,255,255,.6)";
+  ctx.lineWidth=2;
+
+  const flowOffset=(Date.now()/35)%55;
+
+  for(let y=85;y<h-75;y+=45){
+    for(let x=20;x<w;x+=110){
+      ctx.beginPath();
+      ctx.moveTo(x+flowOffset,y);
+      ctx.lineTo(x+flowOffset+28,y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle="#386c38";
+  ctx.font="bold 15px Arial";
+  ctx.fillText("START BANK",20,32);
+  ctx.fillText("OPPOSITE BANK",20,h-20);
+
+  ctx.fillStyle="#267eaa";
+  ctx.font="bold 13px Arial";
+  ctx.fillText("RIVER CURRENT →",w/2-65,82);
+
+  const scale=(riverEnd-startX)/riverWidth;
+  const predictedY=startY+result.drift*scale;
+
+  ctx.setLineDash([7,6]);
+  ctx.strokeStyle="rgba(22,100,160,.5)";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(startX,startY);
+  ctx.lineTo(riverEnd,predictedY);
+  ctx.stroke();
+
+  ctx.strokeStyle="rgba(40,80,100,.35)";
+  ctx.beginPath();
+  ctx.moveTo(startX,startY);
+  ctx.lineTo(riverEnd,startY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle="#ed8c32";
+  ctx.beginPath();
+  ctx.arc(riverEnd,predictedY,7,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle="#75461d";
+  ctx.font="bold 12px Arial";
+  ctx.fillText("Predicted landing",riverEnd-115,predictedY-14);
+
+  drawBoat(boatX,boatY);
+
+  const {boat,current,angle}=getValues();
+  const vectorScale=8;
+
+  drawArrow(
+    boatX,boatY,
+    boatX+boat*Math.cos(angle)*vectorScale,
+    boatY+boat*Math.sin(angle)*vectorScale,
+    "#1768cc","Boat"
+  );
+
+  drawArrow(
+    boatX,boatY,
+    boatX+current*vectorScale,
+    boatY,
+    "#e27b24","Current"
+  );
+
+  drawArrow(
+    boatX,boatY,
+    boatX+result.across*vectorScale,
+    boatY+result.downstream*vectorScale,
+    "#15945e","Ground"
+  );
+
+  ctx.fillStyle="#174d6c";
+  ctx.font="bold 13px Arial";
+  const status=running?"BOAT IN MOTION":finished?"CROSSING COMPLETE":"READY TO CROSS";
+  ctx.fillText(status,w/2-65,h/2-35);
+}
+
+function startSimulation(){
+  if(running)return;
+
+  if(finished)resetSimulation();
+
+  running=true;
+  lastTime=0;
+
+  document.getElementById("startBtn").textContent="⏳ Crossing...";
+  animationId=requestAnimationFrame(animate);
+}
+
+function animate(timestamp){
+  if(!running)return;
+
+  if(!lastTime)lastTime=timestamp;
+
+  const dt=Math.min((timestamp-lastTime)/1000,.05);
+  lastTime=timestamp;
+
+  const result=calculate();
+
+  const previousX=boatX;
+  const previousY=boatY;
+
+  boatX+=result.across*visualScale*dt;
+  boatY+=result.downstream*visualScale*dt;
+  elapsed+=dt;
+
+  if(boatX>=riverEnd){
+    const fraction=(riverEnd-previousX)/(boatX-previousX);
+
+    boatX=riverEnd;
+    boatY=previousY+(boatY-previousY)*fraction;
+
+    running=false;
+    finished=true;
+
+    document.getElementById("startBtn").textContent="▶ Cross Again";
+
+    document.getElementById("explanation").textContent=
+      `Crossing complete! The boat reached the opposite bank in ${elapsed.toFixed(2)} seconds. `+
+      `Its landing position is shown by the marker.`;
+
+    draw();
+    return;
+  }
+
+  draw();
+  animationId=requestAnimationFrame(animate);
+}
+
+function resetSimulation(){
+  running=false;
+  finished=false;
+
+  if(animationId)cancelAnimationFrame(animationId);
+
+  boatX=startX;
+  boatY=startY;
+  elapsed=0;
+  lastTime=0;
+
+  document.getElementById("startBtn").textContent="▶ Start Crossing";
+
+  updateStats();
+  draw();
+}
+
+[boatInput,currentInput,angleInput].forEach(input=>{
+  input.addEventListener("input",updateLabels);
+});
+
+updateLabels();
+</script>
+</body>
+</html>
